@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use esp32_nimble::enums::ConnMode;
 use esp32_nimble::enums::DiscMode;
@@ -19,11 +17,6 @@ fn main() -> Result<()> {
 
     let peripherals = Peripherals::take()?;
     let mut led = PinDriver::output(peripherals.pins.gpio15)?;
-
-    led.set_low()?;
-    log::info!("Wait for sensor warm-up after poweron");
-    FreeRtos::delay_ms(Duration::from_secs(3 * 60).as_millis().try_into()?);
-    log::info!("Sensor warm-up complete, sending data");
     led.set_high()?;
 
     let adc1 = AdcDriver::new(peripherals.adc1)?;
