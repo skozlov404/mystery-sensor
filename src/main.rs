@@ -4,6 +4,7 @@ use esp32_nimble::enums::DiscMode;
 use esp32_nimble::utilities::BleUuid;
 use esp32_nimble::BLEAdvertisementData;
 use esp32_nimble::BLEDevice;
+use esp_idf_svc::hal::adc::attenuation::DB_11;
 use esp_idf_svc::hal::adc::oneshot::config::AdcChannelConfig;
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::PinDriver;
@@ -22,6 +23,7 @@ fn main() -> Result<()> {
     let adc1 = AdcDriver::new(peripherals.adc1)?;
 
     let channel_config = AdcChannelConfig{
+        attenuation: DB_11,
         calibration: true,
         ..Default::default()
     };
@@ -43,7 +45,7 @@ fn main() -> Result<()> {
             0x40, // Header
             0x0E, // pm10 sensor
         ]);
-        ble_ad_packet.extend(sensor_data_raw.to_le_bytes());
+        ble_ad_packet.extend(sensor_data.to_le_bytes());
 
         let mut ble_advertisement_data = BLEAdvertisementData::new();
         ble_advertisement_data.name("MisterySensor");
