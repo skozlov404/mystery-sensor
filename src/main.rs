@@ -5,12 +5,16 @@ use esp32_nimble::utilities::BleUuid;
 use esp32_nimble::BLEAdvertisementData;
 use esp32_nimble::BLEDevice;
 use esp_idf_svc::hal::adc::attenuation::DB_11;
+use esp_idf_svc::hal::adc::attenuation::DB_6;
 use esp_idf_svc::hal::adc::oneshot::config::AdcChannelConfig;
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::PinDriver;
 use esp_idf_svc::hal::adc::oneshot::AdcDriver;
 use esp_idf_svc::hal::adc::oneshot::AdcChannelDriver;
 use esp_idf_svc::hal::prelude::Peripherals;
+
+const VBAT_FULL: u16 = 1400;
+const VBAT_EMPTY: u16 = 1100;
 
 fn main() -> Result<()> {
     esp_idf_svc::sys::link_patches();
@@ -20,14 +24,19 @@ fn main() -> Result<()> {
     let mut led = PinDriver::output(peripherals.pins.gpio15)?;
     led.set_high()?;
 
-    let adc1 = AdcDriver::new(peripherals.adc1)?;
-
-    let channel_config = AdcChannelConfig{
+    let adc = AdcDriver::new(peripherals.adc1)?;
+    let sensor_adc_config = AdcChannelConfig{
         attenuation: DB_11,
         calibration: true,
         ..Default::default()
     };
-    let mut adc_pin0 = AdcChannelDriver::new(adc1, peripherals.pins.gpio0, &channel_config)?;
+    let mut adc_pin0 = AdcChannelDriver::new(&adc, peripherals.pins.gpio0, &sensor_adc_config)?;
+    let battery_adc_config = AdcChannelConfig{
+        attenuation: DB_6,
+        calibration: true,
+        ..Default::default()
+    };
+    let mut adc_pin1 = AdcChannelDriver::new(&adc, peripherals.pins.gpio1, &battery_adc_config)?;
 
     let ble = BLEDevice::take();
     let ble_advertiser = ble.get_advertising();
@@ -37,14 +46,22 @@ fn main() -> Result<()> {
 
     loop {
         led.set_low()?;
+        let vbat = adc_pin1.read()?;
         let sensor_data = adc_pin0.read()?;
         let sensor_data_raw = adc_pin0.read_raw()?;
-        log::info!("read: {}, read_raw: {}", sensor_data, sensor_data_raw);
+        log::info!("vbat: {vbat}, read: {sensor_data}, read_raw: {sensor_data_raw}");
         
-        let mut ble_ad_packet = Vec::<u8>::from([
-            0x40, // Header
-            0x0E, // pm10 sensor
-        ]);
+        // Initialize BLE data
+        let mut ble_ad_packet = Vec::<u8>::with_capacity(6); 
+        ble_ad_packet.push(0x40); // header
+
+        // Battery data
+        let bat_percentage: u8 = ((vbat - VBAT_EMPTY)*100/(VBAT_FULL - VBAT_EMPTY)) as u8;
+        ble_ad_packet.push(0x01); // battery percentage
+        ble_ad_packet.push(bat_percentage.to_le());
+
+        // Sensor data
+        ble_ad_packet.push(0x0E); // pm10 sensor
         ble_ad_packet.extend(sensor_data.to_le_bytes());
 
         let mut ble_advertisement_data = BLEAdvertisementData::new();
