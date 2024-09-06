@@ -45,18 +45,20 @@ fn main() -> Result<()> {
     ble_advertiser.lock().start()?;
 
     loop {
-        led.set_low()?;
+        led.set_low()?; // LED ON
+
         let vbat = adc_pin1.read()?;
+        let bat_percentage: u8 = ((vbat - VBAT_EMPTY)*100/(VBAT_FULL - VBAT_EMPTY)) as u8;
+
         let sensor_data = adc_pin0.read()?;
         let sensor_data_raw = adc_pin0.read_raw()?;
-        log::info!("vbat: {vbat}, read: {sensor_data}, read_raw: {sensor_data_raw}");
+        log::info!("vbat: {vbat}, bat_pct: {bat_percentage}%, read: {sensor_data}, read_raw: {sensor_data_raw}");
         
         // Initialize BLE data
         let mut ble_ad_packet = Vec::<u8>::with_capacity(6); 
         ble_ad_packet.push(0x40); // header
 
         // Battery data
-        let bat_percentage: u8 = ((vbat - VBAT_EMPTY)*100/(VBAT_FULL - VBAT_EMPTY)) as u8;
         ble_ad_packet.push(0x01); // battery percentage
         ble_ad_packet.push(bat_percentage.to_le());
 
@@ -69,7 +71,7 @@ fn main() -> Result<()> {
         ble_advertisement_data.service_data(BleUuid::from_uuid16(0xFCD2), &ble_ad_packet);
         ble_advertiser.lock().set_data(&mut ble_advertisement_data).unwrap();
         
-        led.set_high()?;
+        led.set_high()?; // LED OFF
         FreeRtos::delay_ms(1000);
     }
 }
