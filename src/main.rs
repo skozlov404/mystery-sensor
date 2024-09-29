@@ -67,7 +67,7 @@ fn main() -> Result<()> {
         ble_ad_packet.extend(sensor_data.to_le_bytes());
 
         let mut ble_advertisement_data = BLEAdvertisementData::new();
-        ble_advertisement_data.name("MisterySensor");
+        ble_advertisement_data.name("MysterySensor");
         ble_advertisement_data.service_data(BleUuid::from_uuid16(0xFCD2), &ble_ad_packet);
         ble_advertiser.lock().set_data(&mut ble_advertisement_data).unwrap();
         
